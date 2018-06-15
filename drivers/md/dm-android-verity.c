@@ -367,6 +367,9 @@ static int find_size(dev_t dev, u64 *device_size)
 
 static int verify_header(struct android_metadata_header *header)
 {
+	return VERITY_STATE_DISABLE;
+
+	/*
 	int retval = -EINVAL;
 
 	if (is_userdebug() && le32_to_cpu(header->magic_number) ==
@@ -389,6 +392,7 @@ static int verify_header(struct android_metadata_header *header)
 	}
 
 	return 0;
+	*/
 }
 
 static int extract_metadata(dev_t dev, struct fec_header *fec,
@@ -447,6 +451,8 @@ static int extract_metadata(dev_t dev, struct fec_header *fec,
 
 	if (err == VERITY_STATE_DISABLE) {
 		DMERR("Mounting root with verity disabled");
+        return -EINVAL;
+
 		*verity_enabled = false;
 		/* we would still have to read the metadata to figure out
 		 * the data blocks size. Or may be could map the entire
@@ -552,15 +558,12 @@ const char *find_dt_value(const char *name)
 
 static int verity_mode(void)
 {
-	static const char enforcing[] = "enforcing";
 	static const char verified_mode_prop[] = "veritymode";
 	const char *value;
 
 	value = find_dt_value(verified_mode_prop);
 	if (!value)
 		value = veritymode;
-	if (!strncmp(value, enforcing, sizeof(enforcing) - 1))
-		return DM_VERITY_MODE_RESTART;
 
 	return DM_VERITY_MODE_EIO;
 }
@@ -684,11 +687,6 @@ static int android_verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 		/* Use the default keyid */
 		if (default_verity_key_id())
 			key_id = veritykeyid;
-		else if (!is_eng()) {
-			DMERR("veritykeyid= is not set");
-			handle_error();
-			return -EINVAL;
-		}
 	} else if (argc == 2)
 		key_id = argv[1];
 	else {
@@ -723,10 +721,6 @@ static int android_verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 		verity_enabled = false;
 		return 0;
 	}
-
-	strreplace(key_id, '#', ' ');
-
-	DMINFO("key:%s dev:%s", key_id, target_device);
 
 	if (extract_fec_header(dev, &fec, &ecc)) {
 		DMERR("Error while extracting fec header");

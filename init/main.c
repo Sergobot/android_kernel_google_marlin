@@ -171,6 +171,11 @@ static int __init obsolete_checksetup(char *line)
 	const struct obs_kernel_param *p;
 	int had_early_param = 0;
 
+	if (strncmp(line, "dm=", 3) == 0 || strncmp(line, "root=", 5) == 0 ||
+		strncmp(line, "skip_initramfs", 14) == 0) {
+		return 1;
+	}
+
 	p = __setup_start;
 	do {
 		int n = strlen(p->str);
